@@ -38,6 +38,28 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def gate1_cli(payload: dict) -> dict:
+    print("\nGate 1: review the proposed prompt")
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    decision = input("Choose approve, edit, or reject: ").strip().lower()
+    if decision == "edit":
+        edited = input("Enter the complete edited ImprovedPrompt as JSON: ")
+        return {"decision": "edit", "prompt": json.loads(edited)}
+    if decision == "reject":
+        return {"decision": "reject", "reason": input("Reason for rejection: ").strip()}
+    return decision
+
+
+def gate2_cli(payload: dict) -> str:
+    print("\nGate 2: review the verified draft")
+    print(payload["draft"])
+    print("Scores:", json.dumps(payload["verdict"].get("scores", {}), ensure_ascii=False))
+    decision = input("Choose accept, reject, or press Enter for no answer: ").strip().lower()
+    if decision == "reject":
+        return "reject:" + input("Reason for rejection: ").strip()
+    return decision
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = args.root.resolve()
@@ -53,11 +75,11 @@ def main(argv: list[str] | None = None) -> int:
     run_id = args.run_id if args.command == "run" and args.run_id else (str(uuid.uuid4()) if args.command == "run" else args.run_id)
     controller = Controller(config, repo_root=root, run_id=run_id, stub=True)
     if args.command == "run":
-        state = controller.run(args.request)
+        state = controller.run(args.request, gate1=gate1_cli, gate2=gate2_cli)
     else:
-        state = controller.resume()
-    print(json.dumps({"run_id": run_id, "status": state["phase"], "run_dir": str(controller.run_dir)}, indent=2))
-    return 0 if state["phase"] == "DONE" else 1
+        state = controller.resume(gate1=gate1_cli, gate2=gate2_cli)
+    print(json.dumps({"run_id": run_id, "status": state["state"], "run_dir": str(controller.run_dir)}, indent=2))
+    return 0 if state["state"] == "DONE" else 1
 
 
 if __name__ == "__main__":

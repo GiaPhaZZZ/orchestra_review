@@ -100,7 +100,7 @@ class T1Tests(unittest.TestCase):
         run_dir = ROOT / "runs" / run_id
         try:
             command = [sys.executable, "-m", "harness.cli", "--root", str(ROOT), "run", "--request", "Say hello", "--run-id", run_id]
-            run = subprocess.run(command, cwd=ROOT, text=True, capture_output=True)
+            run = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, input="approve\naccept\n")
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             self.assertTrue((run_dir / "events.jsonl").exists())
             self.assertTrue((run_dir / "drafts" / "round-1.json").exists())
