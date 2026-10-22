@@ -1,0 +1,104 @@
+﻿{
+    "task":  "T7 Integration",
+    "source_spec":  ".ao/attachments/attachment-6c3478529c1bda2bc379edfb0aba04b1.markdown",
+    "source_spec_available":  false,
+    "combined_branch_head_before_report":  "e1cc0d760738afdadc9e668053d5bb761a487fcb",
+    "task_commits_applied_in_order":  [
+                                          "248d132e6b72a66f3a26f8228bfe2aeb4e493446",
+                                          "b5ca9c17b3d7abae8ef33e286f28faffde8c7ddd",
+                                          "65030e2287b0f28f4d6029c854959c96e6912917",
+                                          "3daf7caa7d5c44726a235094ec4fb03205b2acc7",
+                                          "a638ef76294192fbb3a6bf55422a00f3e806e390",
+                                          "cdcb423531a266592e3181e1a8a8afde21bd084b"
+                                      ],
+    "readiness":  "BLOCKED",
+    "test_execution":  {
+                           "python":  "3.12.12 at C:\\Users\\DELL\\AppData\\Roaming\\uv\\python\\cpython-3.12-windows-x86_64-none\\python.exe",
+                           "commands":  [
+                                            {
+                                                "command":  "C:\\Users\\DELL\\AppData\\Roaming\\uv\\python\\cpython-3.12-windows-x86_64-none\\python.exe -m unittest discover -v",
+                                                "exit_code":  1,
+                                                "result":  "6 test modules discovered; all 6 failed during import because dependencies are absent: yaml in test_controller.py and test_t1.py; pydantic in test_pe.py, test_t4.py, test_t5.py, and test_t6.py."
+                                            },
+                                            {
+                                                "command":  "C:\\Users\\DELL\\AppData\\Roaming\\uv\\python\\cpython-3.12-windows-x86_64-none\\python.exe -m pytest -q",
+                                                "exit_code":  1,
+                                                "result":  "pytest is not installed: No module named pytest."
+                                            }
+                                        ],
+                           "passes":  0,
+                           "failures":  6,
+                           "scenario_status":  "NOT RUN; test imports blocked before cases execute"
+                       },
+    "required_section_13_scenarios":  [
+                                          {
+                                              "scenario":  "length boundaries, words and tokens units, concision",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "schema validation",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "fuzzy issue matching",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "budgets and abort behavior",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "stub happy path and report fields",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "preflight too long",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "preflight too short",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "factual correction",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "recurring issue",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "stall escalation",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "PROMPT_PROBLEM Gate 1 re-entry",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "budget escalation",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "Headroom fail-open",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "Gate 2 reject and no-answer memory behavior",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "crash and resume",
+                                              "status":  "NOT RUN"
+                                          },
+                                          {
+                                              "scenario":  "T1-T6 combined integration",
+                                              "status":  "NOT RUN"
+                                          }
+                                      ],
+    "blockers":  [
+                     "The source Spec v2.0 attachment was not present in this checkout, so spec-specific expected report fields and conflict policies could not be independently verified.",
+                     "The available offline Python environment lacks pytest, pydantic, and PyYAML; no external package installation or network call was made."
+                 ],
+    "publishing":  "No push, PR, external calls, or paid real-model use."
+}
