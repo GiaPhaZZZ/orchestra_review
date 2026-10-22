@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
-from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Callable
 
@@ -16,7 +14,7 @@ from harness.agents.mc import MemoryCurator
 from harness.events import EventLog
 from harness.llm import LLMClient, BudgetExceeded
 from harness.memory import MemoryStore
-from harness.metrics import score_table
+from harness.metrics import fuzzy_issue_match, preflight, score_table
 from harness.schemas import ImprovedPrompt, Verdict
 
 
@@ -122,27 +120,8 @@ class Controller:
             return decision.strip().lower(), reason.strip()
         return str(result.get("decision", "no_answer")).strip().lower(), str(result.get("reason", ""))
 
-    @staticmethod
-    def _count(text: str, unit: str) -> int:
-        if unit == "tokens":
-            # T2's deterministic preflight approximation; provider tokenization is T4 scope.
-            return len(re.findall(r"\w+|[^\w\s]", text, flags=re.UNICODE))
-        return len(text.split())
-
     def _preflight_issue(self, prompt: dict, draft: str) -> dict | None:
-        band = prompt["length_band"]
-        count = self._count(draft, band.get("unit", "words"))
-        if count < band["min"] or count > band["max"]:
-            return {"metric": "length", "severity": "major", "quote": draft[:120],
-                    "fix": f"Adjust the deliverable to {band['min']}–{band['max']} {band.get('unit', 'words')} (currently {count})."}
-        response = prompt["costar"]["response"]
-        section_clause = re.search(r"(?:required )?sections?\s*:\s*([^.;]+)", response, flags=re.IGNORECASE)
-        required = [h.strip().strip("#-* ") for h in section_clause.group(1).split(",")] if section_clause else []
-        missing = [heading for heading in required if heading.lower() not in draft.lower()]
-        if missing:
-            return {"metric": "format", "severity": "major", "quote": draft[:120],
-                    "fix": "Add the required section(s): " + ", ".join(missing)}
-        return None
+        return preflight(prompt, draft)
 
     def _save_draft(self, round_no: int, draft: str) -> None:
         write_json(self.run_dir / "drafts" / f"round-{round_no}.json", {"round": round_no, "draft": draft})
@@ -199,8 +178,12 @@ class Controller:
                     state["round"] += 1
                     round_no = state["round"]
                     issues = state.pop("revision_issues", None)
-                    previous = state.get("best_draft") if issues else None
-                    draft = self.agents["ex"].run_stub(state["improved_prompt"], issues=issues, previous_draft=previous)
+                    previous = (state.get("best_draft") or state.get("draft")) if issues else None
+                    if self.stub:
+                        draft = self.agents["ex"].run_stub(state["improved_prompt"], issues=issues, previous_draft=previous)
+                    else:
+                        draft = self.agents["ex"].run(self.client, state["improved_prompt"], issues=issues,
+                                                      previous_draft=previous)
                     state["draft"] = draft
                     self._save_draft(round_no, draft)
                     self._transition(state, "PREFLIGHT")
@@ -315,14 +298,7 @@ class Controller:
 
     def _repeated_issue(self, previous: list[dict], current: list[dict]) -> bool:
         threshold = float(self.config["thresholds"]["fuzzy_match"])
-        for left in previous:
-            for right in current:
-                if left.get("metric") != right.get("metric"):
-                    continue
-                a, b = left.get("quote", "").casefold().strip(), right.get("quote", "").casefold().strip()
-                if a and b and SequenceMatcher(None, a, b).ratio() >= threshold:
-                    return True
-        return False
+        return fuzzy_issue_match(previous, current, threshold)
 
     def write_report(self, state: dict | None = None) -> None:
         state = state or json.loads(self.checkpoint_path.read_text(encoding="utf-8"))
