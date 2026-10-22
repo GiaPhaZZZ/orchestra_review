@@ -189,9 +189,66 @@ class ControllerTests(unittest.TestCase):
 
         self.controller.agents["ex"] = BudgetEX()
         result = self.controller.run("request", gate1=lambda _: "approve")
-        self.assertEqual(result["state"], "ESCALATED")
+        self.assertEqual(result["state"], "ABORTED")
         self.assertIn("abort threshold", result["escalation_reason"])
         self.assertTrue(self.controller.checkpoint_path.exists())
+
+    def test_preflight_too_short_never_calls_verifier(self):
+        class ShortPE(FakePE):
+            def run_stub(inner, request):
+                prompt = super(ShortPE, inner).run_stub(request).model_dump(mode="json")
+                prompt["length_band"] = {"min": 3, "max": 5, "unit": "words"}
+                return ImprovedPrompt.model_validate(prompt)
+
+        self.controller.agents["pe"] = ShortPE()
+        self.controller.agents["ex"] = FakeEX(["too short"] * 3)
+
+        class NoVR:
+            def run_stub(self, *args, **kwargs):
+                raise AssertionError("preflight must bypass verifier")
+
+        self.controller.agents["vr"] = NoVR()
+        result = self.controller.run("request", gate1=lambda _: "approve")
+        self.assertEqual(result["state"], "ESCALATED")
+        self.assertEqual([row["decision"] for row in result["rounds"]], ["PREFLIGHT"] * 3)
+        self.assertTrue(all(item["decision"] == "PREFLIGHT" for item in result["revision_summaries"]))
+
+    def test_factual_issue_is_corrected_in_stub_revision(self):
+        self.controller.agents["ex"] = FakeEX(["The answer is 42.", "The answer is 41."])
+        self.controller.agents["vr"] = FakeVR([
+            verdict("REVISE", 0.50, "The answer is 42.", metric="factual accuracy"),
+            verdict("PASS", 0.95),
+        ])
+        result = self.controller.run("request", gate1=lambda _: "approve",
+                                     gate2=lambda _: "accept", sources=["The answer is 41."])
+        self.assertEqual(result["state"], "DONE")
+        self.assertEqual(result["best_draft"], "The answer is 41.")
+        self.assertEqual([item["decision"] for item in result["rounds"]], ["REVISE", "PASS"])
+
+    def test_report_contains_section_11_fields_and_only_final_status(self):
+        self.controller.agents["vr"] = FakeVR([verdict("PASS", 0.95)])
+        self.controller.headroom.tokens_saved = 29
+        self.controller.client.account("ex", 7)
+        result = self.controller.run("request", gate1=lambda _: "approve", gate2=lambda _: "accept")
+        report = json.loads((self.controller.run_dir / "report.json").read_text(encoding="utf-8"))
+        self.assertEqual(result["state"], "DONE")
+        self.assertIn(report["status"], {"DONE", "ESCALATED", "ABORTED"})
+        self.assertEqual(report["status"], "DONE")
+        self.assertEqual(report["gate_1"], [{"decision": "approve", "reason": ""}])
+        self.assertEqual(report["gate_2"]["decision"], "accept")
+        self.assertEqual(report["rounds"], [{"round": 1, "decision": "PASS", "total": 0.95}])
+        self.assertEqual(report["per_agent_tokens"], {"pe": 0, "ex": 7, "vr": 0, "mc": 0})
+        self.assertEqual(report["total_tokens"], 7)
+        self.assertEqual(report["headroom_tokens_saved"], 29)
+        self.assertEqual(report["mem0"], {"hits": 0, "misses": 1, "writes": 0})
+        markdown = (self.controller.run_dir / "report.md").read_text(encoding="utf-8")
+        for text in ("Final status", "Gate 1", "Gate 2", "Per-round scores", "Headroom tokens saved", "Mem0 hits/misses/writes"):
+            self.assertIn(text, markdown)
+
+    def test_paused_checkpoint_does_not_write_final_report(self):
+        paused = self.controller.run("request")
+        self.assertEqual(paused["state"], "GATE1")
+        self.assertFalse((self.controller.run_dir / "report.json").exists())
 
     def test_preflight_failure_counts_as_round_and_skips_verifier(self):
         self.ex = FakeEX(["word " * 501, "word " * 501, "word " * 501])

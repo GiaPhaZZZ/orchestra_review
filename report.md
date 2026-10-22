@@ -1,45 +1,53 @@
 ﻿# T7 Integration Report
 
-**Status: BLOCKED — do not treat the combined branch as ready.**
+**Stub validation: PASS.** No real-model calls were made. The six supplied task commits were cherry-picked in the requested order; the resulting implementation modules are present.
 
-The six requested task commits were verified present and cherry-picked cleanly in order. The combined implementation head before this report was `e1cc0d760738afdadc9e668053d5bb761a487fcb`. The expected harness and agent modules are present.
+## Dependency environment
 
-## Test execution
+The local T1 environment was reusable and supplied the declared dependencies:
 
-Python 3.12.12 is available through the local `uv` interpreter. No network or package installation was used.
+- Interpreter: `C:\Users\DELL\.ao\data\worktrees\review_or\harness-scaffold\.venv\Scripts\python.exe`
+- Python 3.12.12, Pydantic 2.14.1, PyYAML 6.0.3
+- `pytest` is not installed and was not needed; the repository tests use `unittest`.
 
-| Command | Result |
-|---|---|
-| `C:\Users\DELL\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\python.exe -m unittest discover -v` | Exit 1. Six modules discovered; all six failed at import. `yaml` is missing for `test_controller.py` and `test_t1.py`; `pydantic` is missing for `test_pe.py`, `test_t4.py`, `test_t5.py`, and `test_t6.py`. No test case ran. |
-| `C:\Users\DELL\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\python.exe -m pytest -q` | Exit 1. `pytest` is not installed (`No module named pytest`). |
+The requested normal sync was attempted with `uv sync`, using a worktree-local cache. It failed after three retries fetching `https://pypi.org/simple/pydantic/`; TCP socket access was denied by the sandbox (Windows error 10013). The existing T1 environment avoided any dependency installation or network requirement.
 
-The exact interpreter used was `C:\Users\DELL\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\python.exe`.
+## Unit tests
 
-## Section 13 test plan and status
+Command:
 
-These checks remain required. Every item is **NOT RUN**, because test modules fail to import before cases execute.
+```text
+C:\Users\DELL\.ao\data\worktrees\review_or\harness-scaffold\.venv\Scripts\python.exe -m unittest discover -v
+```
 
-1. Length boundaries, word and token units, and concision.
-2. Schema validation.
-3. Fuzzy issue matching.
-4. Token budgets and abort behavior.
-5. Stub happy path and verification of every report field.
-6. Preflight rejection for too-long output.
-7. Preflight rejection for too-short output.
-8. Factual correction.
-9. Recurring issue escalation.
-10. Stall escalation.
-11. `PROMPT_PROBLEM` re-entry through Gate 1.
-12. Budget escalation.
-13. Headroom fail-open behavior.
-14. Gate 2 rejection and no-answer memory behavior.
-15. Crash and resume.
-16. Combined T1–T6 integration.
+Result: **49 tests passed, 0 failures, 0 errors.** Coverage includes length boundaries and both units, concision, schemas, fuzzy issue matching, budgets/abort, T1–T6 units, and controller integration.
 
-## Blockers
+## Section 13 stub scenarios
 
-- The requested Spec v2.0 source `.ao/attachments/attachment-6c3478529c1bda2bc379edfb0aba04b1.markdown` is absent from this checkout. Spec-specific report expectations and conflict-resolution requirements therefore remain unverified.
-- The available offline Python environment lacks `pytest`, `pydantic`, and PyYAML. No external dependency installation was attempted.
-- No test result is claimed as passing, and the system is not ready for release.
+All 11 required scenarios passed:
 
-No push, PR, external calls, or paid real-model use occurred.
+1. Happy path and report fields.
+2. Preflight too long.
+3. Preflight too short.
+4. Factual correction.
+5. Recurring issue escalation.
+6. Stall escalation.
+7. `PROMPT_PROBLEM` Gate 1 re-entry.
+8. Budget escalation/abort.
+9. Headroom fail-open.
+10. Gate 2 rejection and no-answer memory behavior.
+11. Crash and resume.
+
+## End-to-end CLI and report contract
+
+A direct local stub run used run ID `t7-final-smoke-20261022`, request `Say hello clearly.`, and Gate 1/Gate 2 answers `approve`/`accept`. It completed with `DONE` and one `PASS` round (score 1.0).
+
+The generated `report.json` includes the required Section 11 fields: final status; Gate 1 and Gate 2 decisions; per-round score rows; per-agent token counts; Headroom tokens saved; and Mem0 hits/misses/writes. The generated Markdown report contains the corresponding human-readable sections. The smoke run recorded zero stub token use, zero Headroom savings, and Mem0 counts of 0 hits, 1 miss, and 0 writes.
+
+## VR calibration
+
+A local ten-case deterministic `Verifier.run_stub` golden set matched all ten expected outcomes (five in-band factual passes, too-short and too-long revisions, two no-source factual revisions, and one non-factual pass). This is synthetic local contract calibration; real-model calibration was not performed.
+
+No push or PR was created.
+
+Real-provider behavior remains **untested**; validation used only local deterministic stubs. No paid model call or external service was used.

@@ -14,6 +14,7 @@ from harness.agents.mc import MemoryCurator
 from harness.events import EventLog
 from harness.llm import LLMClient, BudgetExceeded
 from harness.memory import MemoryStore
+from harness.compress import HeadroomProxy
 from harness.metrics import fuzzy_issue_match, preflight, score_table
 from harness.schemas import ImprovedPrompt, Verdict
 
@@ -42,6 +43,7 @@ class Controller:
         }
         self.client = LLMClient(config, stub=stub)
         self.memory = MemoryStore()
+        self.headroom = HeadroomProxy(config)
 
     @property
     def checkpoint_path(self) -> Path:
@@ -155,7 +157,6 @@ class Controller:
                     self._transition(state, "GATE1")
                 elif current == "GATE1":
                     if gate1 is None:
-                        self.write_report(state)
                         return state
                     decision, prompt, reason = self._gate1(
                         ImprovedPrompt.model_validate(state["improved_prompt"]), gate1,
@@ -286,7 +287,6 @@ class Controller:
                         self._transition(state, "EXECUTING")
                 elif current == "GATE2":
                     if gate2 is None:
-                        self.write_report(state)
                         return state
                     decision, reason = self._gate2(gate2, {"draft": state["draft"], "best_draft": state["best_draft"],
                                                            "verdict": state["verdict"]})
@@ -313,7 +313,7 @@ class Controller:
             return state
         except BudgetExceeded as exc:
             self._transition(state, "ABORTED", detail={"reason": str(exc), "best_draft": state.get("best_draft")})
-            self._escalate(state, str(exc))
+            state["escalation_reason"] = str(exc)
             state["error"] = str(exc)
             self.write_report(state)
             return state
@@ -331,14 +331,19 @@ class Controller:
 
     def write_report(self, state: dict | None = None) -> None:
         state = state or json.loads(self.checkpoint_path.read_text(encoding="utf-8"))
+        if state.get("state") not in TERMINAL:
+            raise ValueError("run report requires a final DONE, ESCALATED, or ABORTED state")
         agents = self.client.usage.agents or state.get("usage", {}).get("agents", {})
         total_tokens = self.client.usage.total or state.get("usage", {}).get("total", 0)
+        headroom_tokens_saved = self.headroom.tokens_saved
+        if not self.stub:
+            headroom_tokens_saved = self.headroom.capture_savings()
         report = {
             "run_id": self.run_id, "status": state.get("state", "ESCALATED"),
             "gate_1": state.get("gate1_decisions", []), "gate_2": state.get("gate2_decision") or "PENDING",
             "rounds": state.get("rounds", []), "best_draft": state.get("best_draft"),
             "per_agent_tokens": {key: agents.get(key, 0) for key in ("pe", "ex", "vr", "mc")},
-            "total_tokens": total_tokens, "headroom_tokens_saved": 0,
+            "total_tokens": total_tokens, "headroom_tokens_saved": headroom_tokens_saved,
             "mem0": {"hits": self.memory.hits, "misses": self.memory.misses, "writes": len(self.memory.writes)},
             "escalation_reason": state.get("escalation_reason"),
         }
