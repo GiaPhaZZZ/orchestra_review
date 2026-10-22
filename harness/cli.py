@@ -31,6 +31,8 @@ def build_parser() -> argparse.ArgumentParser:
     run = subparsers.add_parser("run", help="start a deterministic stub run")
     run.add_argument("--request", required=True)
     run.add_argument("--run-id", default=None)
+    run.add_argument("--source", action="append", default=[], help="approved factual source text (repeatable)")
+    run.add_argument("--non-factual", action="store_true", help="declare at Gate 1 that this request is non-factual")
     resume = subparsers.add_parser("resume", help="resume a persisted run checkpoint")
     resume.add_argument("run_id")
     report = subparsers.add_parser("report", help="print a persisted JSON report")
@@ -75,7 +77,8 @@ def main(argv: list[str] | None = None) -> int:
     run_id = args.run_id if args.command == "run" and args.run_id else (str(uuid.uuid4()) if args.command == "run" else args.run_id)
     controller = Controller(config, repo_root=root, run_id=run_id, stub=True)
     if args.command == "run":
-        state = controller.run(args.request, gate1=gate1_cli, gate2=gate2_cli)
+        state = controller.run(args.request, gate1=gate1_cli, gate2=gate2_cli,
+                               sources=args.source, non_factual=args.non_factual)
     else:
         state = controller.resume(gate1=gate1_cli, gate2=gate2_cli)
     print(json.dumps({"run_id": run_id, "status": state["state"], "run_dir": str(controller.run_dir)}, indent=2))

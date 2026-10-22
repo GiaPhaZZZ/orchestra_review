@@ -55,7 +55,7 @@ class FakeVR:
         self.verdicts = list(verdicts)
         self.version = 1
 
-    def run_stub(self, draft):
+    def run_stub(self, draft, improved_prompt=None, **kwargs):
         return self.verdicts.pop(0)
 
 
@@ -106,6 +106,27 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(self.controller.memory.writes, [{
             "text": "The tone is wrong.", "type": "failure", "confidence": 1.0
         }])
+
+    def test_verifier_receives_only_approved_fields_and_logs_claim_checks(self):
+        class SpyVR:
+            version = 2
+            def __init__(inner): inner.kwargs = None
+            def run_stub(inner, draft, improved_prompt, **kwargs):
+                inner.kwargs = kwargs
+                return Verdict.model_validate({
+                    "decision": "PASS", "scores": {"factual accuracy": 1.0}, "total": 1.0,
+                    "issues": [], "claims": [{"claim": "a useful answer", "status": "supported", "evidence": "source"}],
+                    "length": {"count": 3, "band": [1, 500], "status": "OK"},
+                })
+        spy = SpyVR()
+        self.controller.agents["vr"] = spy
+        self.controller.run("request", gate1=lambda payload: self.assertIn("non_factual", payload) or "approve",
+                            gate2=lambda _: "accept", sources=["approved source"], non_factual=False)
+        self.assertEqual(set(spy.kwargs), {"sources", "earlier_verdict_summary", "non_factual"})
+        self.assertEqual(spy.kwargs["sources"], ["approved source"])
+        events = [json.loads(line) for line in (self.controller.run_dir / "events.jsonl").read_text().splitlines()]
+        self.assertTrue(any(event.get("state") == "CLAIM_CHECK" and event.get("status") == "supported"
+                            for event in events))
 
     def test_resume_reenters_checkpointed_gate(self):
         with self.assertRaisesRegex(RuntimeError, "simulated interruption"):

@@ -36,7 +36,8 @@ class Controller:
         self.agents = {
             "pe": PromptEngineer(prompt_dir / "pe.md"),
             "ex": Executor(prompt_dir / "ex.md"),
-            "vr": Verifier(prompt_dir / "vr.md"),
+            "vr": Verifier(prompt_dir / "vr.md",
+                           search_enabled=bool(config.get("verifier", {}).get("search_enabled", False))),
             "mc": MemoryCurator(prompt_dir / "mc.md"),
         }
         self.client = LLMClient(config, stub=stub)
@@ -47,12 +48,14 @@ class Controller:
         return self.run_dir / "checkpoint.json"
 
     def run(self, request: str, *, gate1: Callable[[dict], Any] | None = None,
-            gate2: Callable[[dict], Any] | None = None) -> dict:
+            gate2: Callable[[dict], Any] | None = None, sources: list[str] | None = None,
+            non_factual: bool = False) -> dict:
         state = {
             "run_id": self.run_id, "request": request, "state": "INIT", "round": 0,
             "transitions": ["INIT"], "rounds": [], "usage": {"agents": {}, "total": 0}, "pe_rewrites": 0,
             "revision_summaries": [], "gate1_decisions": [], "gate2_decision": None,
-            "best_draft": None, "best_score": -1.0,
+            "best_draft": None, "best_score": -1.0, "sources": list(sources or []),
+            "non_factual": bool(non_factual),
         }
         self.events.write("INIT", "controller", None, {}, 0.0)
         self._checkpoint(state)
@@ -88,8 +91,11 @@ class Controller:
     def _prompt_payload(prompt: ImprovedPrompt) -> dict:
         return prompt.model_dump(mode="json")
 
-    def _gate1(self, prompt: ImprovedPrompt, callback: Callable[[dict], Any] | None) -> tuple[str, ImprovedPrompt | None, str]:
+    def _gate1(self, prompt: ImprovedPrompt, callback: Callable[[dict], Any] | None,
+               *, sources: list[str] | None = None, non_factual: bool = False) -> tuple[str, ImprovedPrompt | None, str]:
         payload = self._prompt_payload(prompt)
+        payload["sources"] = list(sources or [])
+        payload["non_factual"] = bool(non_factual)
         if callback is None:
             return "approve", prompt, ""
         result = callback(payload)
@@ -104,7 +110,8 @@ class Controller:
         decision = str(result.get("decision", "edit")).strip().lower()
         reason = str(result.get("reason", ""))
         if decision == "edit":
-            edited = result.get("prompt", {k: v for k, v in result.items() if k not in {"decision", "reason"}})
+            edited = result.get("prompt", {k: v for k, v in result.items()
+                                            if k not in {"decision", "reason", "sources", "non_factual"}})
             return decision, ImprovedPrompt.model_validate(edited), reason
         return decision, prompt, reason
 
@@ -150,7 +157,10 @@ class Controller:
                     if gate1 is None:
                         self.write_report(state)
                         return state
-                    decision, prompt, reason = self._gate1(ImprovedPrompt.model_validate(state["improved_prompt"]), gate1)
+                    decision, prompt, reason = self._gate1(
+                        ImprovedPrompt.model_validate(state["improved_prompt"]), gate1,
+                        sources=state.get("sources", []), non_factual=state.get("non_factual", False),
+                    )
                     state["gate1_decisions"].append({"decision": decision, "reason": reason})
                     if decision == "edit":
                         state["improved_prompt"] = self._prompt_payload(prompt)
@@ -198,12 +208,31 @@ class Controller:
                     else:
                         self._transition(state, "VERIFYING")
                 elif current == "VERIFYING":
-                    verdict = Verdict.model_validate(self.agents["vr"].run_stub(state["draft"]))
+                    earlier = state.get("revision_summaries", [])
+                    summary = " ".join(
+                        f"round {item['round']}: {item['decision']} score {item['total']:.2f}"
+                        for item in earlier
+                    )
+                    verifier = self.agents["vr"]
+                    if self.stub:
+                        verdict = verifier.run_stub(
+                            state["draft"], state["improved_prompt"], sources=state.get("sources", []),
+                            earlier_verdict_summary=summary, non_factual=state.get("non_factual", False),
+                        )
+                    else:
+                        verdict = verifier.run(
+                            self.client, state["improved_prompt"], state["draft"],
+                            sources=state.get("sources", []), earlier_verdict_summary=summary,
+                            non_factual=state.get("non_factual", False),
+                        )
                     round_no = state["round"]
                     row = {"round": round_no, "decision": verdict.decision, "total": verdict.total}
                     state["rounds"].append(row)
                     self.events.write("VERDICT", "vr", self.agents["vr"].version, {}, 0.0,
                                       decision=verdict.decision, total=verdict.total)
+                    for claim in verdict.claims:
+                        self.events.write("CLAIM_CHECK", "vr", self.agents["vr"].version, {}, 0.0,
+                                          claim=claim.claim, status=claim.status, evidence=claim.evidence)
                     write_json(self.run_dir / "verdicts" / f"round-{round_no}.json", verdict.model_dump(mode="json"))
                     if verdict.total > state.get("best_score", -1.0):
                         state["best_score"], state["best_draft"] = verdict.total, state["draft"]
