@@ -1,0 +1,20 @@
+models:
+  pe: {provider: openrouter, name: cheap-model}
+  ex: {provider: openrouter, name: mid-model}
+  vr: {provider: openrouter, name: strong-model}
+  mc: {provider: openrouter, name: cheap-model}
+thresholds: {pass_total: 0.85, factual_floor: 0.80, stall_delta: 0.02, fuzzy_match: 0.8}
+limits: {pe_rewrites: 2, rounds: 3}
+budget:
+  total_tokens: 60000
+  per_agent: {pe: 8000, ex: 25000, vr: 20000, mc: 4000}
+  warn_at: 0.8
+  abort_at: 1.0
+mem0: {top_k: 5, max_writes_per_run: 5, user_id: astral}
+headroom:
+  mode: proxy
+  base_url: http://localhost:8787
+  output_shaper: false
+  never_compress: [approved_costar_prompt, current_draft]
+verifier: {search_enabled: false}
+prompts: {dir: harness/prompts}

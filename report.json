@@ -1,0 +1,150 @@
+﻿{
+    "task":  "T7 Integration",
+    "readiness":  "STUB_VALIDATION_PASS",
+    "task_commits_applied_in_order":  [
+                                          "248d132e6b72a66f3a26f8228bfe2aeb4e493446",
+                                          "b5ca9c17b3d7abae8ef33e286f28faffde8c7ddd",
+                                          "65030e2287b0f28f4d6029c854959c96e6912917",
+                                          "3daf7caa7d5c44726a235094ec4fb03205b2acc7",
+                                          "a638ef76294192fbb3a6bf55422a00f3e806e390",
+                                          "cdcb423531a266592e3181e1a8a8afde21bd084b"
+                                      ],
+    "dependency_environment":  {
+                                   "normal_sync_command":  "uv sync",
+                                   "normal_sync_result":  "BLOCKED_BY_SANDBOX_NETWORK",
+                                   "exact_error":  "Request failed after 3 retries; failed to fetch https://pypi.org/simple/pydantic/; tcp connect error; socket access forbidden (os error 10013).",
+                                   "reused_environment":  "C:\\Users\\DELL\\.ao\\data\\worktrees\\review_or\\harness-scaffold\\.venv\\Scripts\\python.exe",
+                                   "versions":  {
+                                                    "python":  "3.12.12",
+                                                    "pydantic":  "2.14.1",
+                                                    "PyYAML":  "6.0.3"
+                                                },
+                                   "pytest_installed":  false,
+                                   "pytest_required":  false
+                               },
+    "unit_tests":  {
+                       "command":  "C:\\Users\\DELL\\.ao\\data\\worktrees\\review_or\\harness-scaffold\\.venv\\Scripts\\python.exe -m unittest discover -v",
+                       "result":  "PASS",
+                       "tests_run":  49,
+                       "failures":  0,
+                       "errors":  0
+                   },
+    "section_13_stub_scenarios":  [
+                                      {
+                                          "scenario":  "happy path and report fields",
+                                          "result":  "PASS",
+                                          "evidence":  "test_report_contains_section_11_fields_and_only_final_status; direct CLI smoke run"
+                                      },
+                                      {
+                                          "scenario":  "preflight too long",
+                                          "result":  "PASS",
+                                          "evidence":  "test_preflight_failure_counts_as_round_and_skips_verifier"
+                                      },
+                                      {
+                                          "scenario":  "preflight too short",
+                                          "result":  "PASS",
+                                          "evidence":  "test_preflight_too_short_never_calls_verifier"
+                                      },
+                                      {
+                                          "scenario":  "factual correction",
+                                          "result":  "PASS",
+                                          "evidence":  "test_factual_issue_is_corrected_in_stub_revision"
+                                      },
+                                      {
+                                          "scenario":  "recurring issue",
+                                          "result":  "PASS",
+                                          "evidence":  "test_repeated_issue_escalates_with_best_scoring_draft"
+                                      },
+                                      {
+                                          "scenario":  "stall",
+                                          "result":  "PASS",
+                                          "evidence":  "test_two_small_score_gains_escalate"
+                                      },
+                                      {
+                                          "scenario":  "PROMPT_PROBLEM Gate 1 re-entry",
+                                          "result":  "PASS",
+                                          "evidence":  "test_prompt_problem_requires_fresh_gate1"
+                                      },
+                                      {
+                                          "scenario":  "budget escalation/abort",
+                                          "result":  "PASS",
+                                          "evidence":  "test_budget_exhaustion_escalates; terminal status ABORTED"
+                                      },
+                                      {
+                                          "scenario":  "Headroom fail-open",
+                                          "result":  "PASS",
+                                          "evidence":  "test_health_failure_fails_open_to_direct_provider"
+                                      },
+                                      {
+                                          "scenario":  "Gate 2 reject and no-answer memory behavior",
+                                          "result":  "PASS",
+                                          "evidence":  "test_gate2_rejection_records_failure_memory; test_gate1_reject_then_validated_edit_and_gate2_no_answer"
+                                      },
+                                      {
+                                          "scenario":  "crash and resume",
+                                          "result":  "PASS",
+                                          "evidence":  "test_resume_reenters_checkpointed_gate"
+                                      }
+                                  ],
+    "unit_coverage":  [
+                          {
+                              "area":  "length boundaries, words/tokens units, concision",
+                              "result":  "PASS"
+                          },
+                          {
+                              "area":  "schema validation",
+                              "result":  "PASS"
+                          },
+                          {
+                              "area":  "fuzzy matching",
+                              "result":  "PASS"
+                          },
+                          {
+                              "area":  "budgets and abort",
+                              "result":  "PASS"
+                          },
+                          {
+                              "area":  "T1-T6 combined integration",
+                              "result":  "PASS",
+                              "evidence":  "49-test suite and direct stub CLI run"
+                          }
+                      ],
+    "stub_cli_run":  {
+                         "command":  "C:\\Users\\DELL\\.ao\\data\\worktrees\\review_or\\harness-scaffold\\.venv\\Scripts\\python.exe -m harness.cli --root \u003cworktree\u003e run --request \u0027Say hello clearly.\u0027 --run-id t7-final-smoke-20261022 --non-factual",
+                         "stdin":  "approve\\naccept\\n",
+                         "result":  "DONE",
+                         "report_fields_present":  [
+                                                       "status",
+                                                       "gate_1",
+                                                       "gate_2",
+                                                       "rounds",
+                                                       "per_agent_tokens",
+                                                       "headroom_tokens_saved",
+                                                       "mem0"
+                                                   ],
+                         "rounds":  1,
+                         "headroom_tokens_saved":  0,
+                         "mem0":  {
+                                      "hits":  0,
+                                      "misses":  1,
+                                      "writes":  0
+                                  }
+                     },
+    "vr_stub_calibration":  {
+                                "cases":  10,
+                                "matched":  10,
+                                "command":  "reused Python interpreter with an inline deterministic Verifier.run_stub calibration harness",
+                                "scope":  "Local synthetic contract calibration only; no real-model calibration performed."
+                            },
+    "report_contract":  [
+                            "final status DONE/ESCALATED/ABORTED",
+                            "Gate 1 and Gate 2 decisions",
+                            "score table per round",
+                            "per-agent token counts",
+                            "Headroom tokens saved",
+                            "Mem0 hits/misses/writes"
+                        ],
+    "external_model_calls":  "none",
+    "publishing":  "No push or PR.",
+    "real_provider_behavior":  "UNTESTED; validation used local stubs only."
+}

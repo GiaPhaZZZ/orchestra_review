@@ -1,7 +1,10 @@
 [project]
 name = "review-or"
 version = "0.1.0"
-description = "Add your description here"
+description = "Prompt to Execute to Verify harness scaffold"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["pydantic>=2.0", "PyYAML>=6.0"]
+
+[project.scripts]
+harness = "harness.cli:main"
